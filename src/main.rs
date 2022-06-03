@@ -97,6 +97,7 @@ fn start_client(name: String) {
 
         match rx.try_recv() {
             Ok(msg) => {
+                print!("{}: ", name);
                 let msg = format!("{}: {}", name, msg);
                 let mut buff = msg.clone().into_bytes();
                 buff.resize(MSG_SIZE, 0);
