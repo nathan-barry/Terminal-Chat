@@ -97,7 +97,7 @@ fn start_client(name: String) {
 
         match rx.try_recv() {
             Ok(msg) => {
-                println!("{}", msg);
+                let msg = format!("{}: {}", name, msg);
                 let mut buff = msg.clone().into_bytes();
                 buff.resize(MSG_SIZE, 0);
                 client.write_all(&buff).expect("writing to socket failed");
