@@ -22,22 +22,25 @@ fn start_server() {
     let (tx, rx) = mpsc::channel::<String>();
 
     loop {
+        // Only fires when a client JOINS
         if let Ok((mut socket, addr)) = server.accept() {
             println!("Client {} connected", addr);
-            println!("Socket: {:?}", socket);
 
             let tx = tx.clone();
             clients.push(socket.try_clone().expect("failed to clone client"));
 
+            //
             thread::spawn(move || loop {
                 let mut buff = vec![0; MSG_SIZE];
 
+                // Waits until message is sent from client
                 match socket.read_exact(&mut buff) {
                     Ok(_) => {
                         let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
                         let msg = String::from_utf8(msg).expect("Invalid utf8 message");
 
                         println!("{}: {:?}", addr, msg);
+                        // Sends message to receiver
                         tx.send(msg).expect("failed to send msg to rx");
                     }
                     Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
@@ -51,6 +54,7 @@ fn start_server() {
             });
         }
 
+        // Receives message
         if let Ok(msg) = rx.try_recv() {
             clients = clients
                 .into_iter()
@@ -75,26 +79,29 @@ fn start_client() {
 
     let (tx, rx) = mpsc::channel::<String>();
 
+    // Loops to check if client has entered message in terminal
     thread::spawn(move || loop {
-        let mut buff = vec![0; MSG_SIZE];
-        match client.read_exact(&mut buff) {
-            Ok(_) => {
-                let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
-                let msg = String::from_utf8_lossy(&msg);
-                println!("Client msg read: {:?}", msg);
-            }
-            Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
-            Err(_) => {
-                break;
-            }
-        }
+        // Unnecessary code to print sent message in client terminal
+
+        // let mut buff = vec![0; MSG_SIZE];
+        // match client.read_exact(&mut buff) {
+        //     Ok(_) => {
+        //         let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
+        //         let msg = String::from_utf8_lossy(&msg);
+        //         println!("Client msg read: {:?}", msg);
+        //     }
+        //     Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
+        //     Err(_) => {
+        //         break;
+        //     }
+        // }
 
         match rx.try_recv() {
             Ok(msg) => {
                 let mut buff = msg.clone().into_bytes();
                 buff.resize(MSG_SIZE, 0);
                 client.write_all(&buff).expect("writing to socket failed");
-                println!("Client: {:?}", client.read_exact(&mut buff));
+                //        println!("Client: {:?}", client.read_exact(&mut buff));
             }
             Err(TryRecvError::Empty) => (),
             Err(TryRecvError::Disconnected) => break,
