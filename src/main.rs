@@ -12,7 +12,7 @@ fn sleep() {
     thread::sleep(std::time::Duration::from_millis(100));
 }
 
-fn start_server() {
+fn start_server(name: String) {
     let server = TcpListener::bind(LOCAL).expect("Listener failed to bind");
     server
         .set_nonblocking(true)
@@ -29,7 +29,6 @@ fn start_server() {
             let tx = tx.clone();
             clients.push(socket.try_clone().expect("failed to clone client"));
 
-            //
             thread::spawn(move || loop {
                 let mut buff = vec![0; MSG_SIZE];
 
@@ -37,7 +36,8 @@ fn start_server() {
                 match socket.read_exact(&mut buff) {
                     Ok(_) => {
                         let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
-                        let msg = String::from_utf8(msg).expect("Invalid utf8 message");
+                        let msg =
+                            format!("{}", String::from_utf8(msg).expect("Invalid utf8 message"));
 
                         println!("{}: {:?}", addr, msg);
                         // Sends message to receiver
@@ -71,7 +71,7 @@ fn start_server() {
     }
 }
 
-fn start_client() {
+fn start_client(name: String) {
     let mut client = TcpStream::connect(LOCAL).expect("Stream failed to connect");
     client
         .set_nonblocking(true)
@@ -81,20 +81,19 @@ fn start_client() {
 
     // Loops to check if client has entered message in terminal
     thread::spawn(move || loop {
-        // Unnecessary code to print sent message in client terminal
-
-        // let mut buff = vec![0; MSG_SIZE];
-        // match client.read_exact(&mut buff) {
-        //     Ok(_) => {
-        //         let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
-        //         let msg = String::from_utf8_lossy(&msg);
-        //         println!("Client msg read: {:?}", msg);
-        //     }
-        //     Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
-        //     Err(_) => {
-        //         break;
-        //     }
-        // }
+        // Reads if other clients send a message
+        let mut buff = vec![0; MSG_SIZE];
+        match client.read_exact(&mut buff) {
+            Ok(_) => {
+                let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
+                let msg = format!("{}", String::from_utf8_lossy(&msg));
+                println!("{}", msg);
+            }
+            Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
+            Err(_) => {
+                break;
+            }
+        }
 
         match rx.try_recv() {
             Ok(msg) => {
@@ -127,10 +126,11 @@ fn start_client() {
 
 fn main() {
     let args = env::args().collect::<Vec<String>>();
+    let name = args[2].clone();
     if &args[1] == "host" {
-        start_server();
+        start_server(name);
     } else if &args[1] == "connect" {
-        start_client();
+        start_client(name);
     } else {
         panic!("Argument 1 neither 'host' or 'connect'");
     }
