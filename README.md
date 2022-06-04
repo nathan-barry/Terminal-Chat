@@ -2,7 +2,7 @@
 
 Nathan's Internet Relay Chat (NIRC) is Nathan's implementation of an encrypted terminal-based chat application that allows anyone to host their own server and allow others to join. I have zero clue on how IRC actually works, so my implementation will most likely be nothing like how IRC actually functions.
 
-### How To Start
+## How To Start
 
 Current functionallity only includes local host (127.0.0.1:6000)
 
@@ -14,7 +14,9 @@ To join a server, type in:
 
 `cargo run connect <NAME>`
 
-### Roadmap:
+---
+
+## Roadmap:
 - [ ] Encryption
 - [ ] Make beautiful
 - [ ] Figure out hosting (not on Local)
