@@ -1,152 +1,24 @@
 use std::env;
-/// SERVER
-use std::io::{self, ErrorKind, Read, Write};
-use std::net::{TcpListener, TcpStream};
-use std::sync::mpsc::{self, TryRecvError};
 use std::thread;
 
-const LOCAL: &str = "127.0.0.1:6000";
-const MSG_SIZE: usize = 1024;
+use crate::client::start_client;
+use crate::server::start_server;
+use crate::utils::sleep;
 
-fn sleep() {
-    thread::sleep(std::time::Duration::from_millis(100));
-}
-
-fn start_server(name: String) {
-    let server = TcpListener::bind(LOCAL).expect("Listener failed to bind");
-    server
-        .set_nonblocking(true)
-        .expect("failed to initialize non-blocking");
-
-    let mut clients = vec![];
-    let (tx, rx) = mpsc::channel::<String>();
-
-    loop {
-        // Only fires when a client JOINS
-        if let Ok((mut socket, addr)) = server.accept() {
-            let tx = tx.clone();
-            clients.push(socket.try_clone().expect("failed to clone client"));
-
-            thread::spawn(move || loop {
-                let mut buff = vec![0; MSG_SIZE];
-
-                // Waits until message is sent from client
-                match socket.read_exact(&mut buff) {
-                    Ok(_) => {
-                        let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
-                        let msg =
-                            format!("{}", String::from_utf8(msg).expect("Invalid utf8 message"));
-                        // Sends message to receiver
-                        tx.send(msg).expect("failed to send msg to rx");
-                    }
-                    Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
-                    Err(_) => {
-                        println!("closing connection with: {}", addr);
-                        break;
-                    }
-                }
-
-                sleep();
-            });
-        }
-
-        // Receives message
-        if let Ok(msg) = rx.try_recv() {
-            clients = clients
-                .into_iter()
-                .filter_map(|mut client| {
-                    let mut buff = msg.clone().into_bytes();
-                    buff.resize(MSG_SIZE, 0);
-
-                    client.write_all(&buff).map(|_| client).ok()
-                })
-                .collect::<Vec<_>>();
-        }
-
-        sleep();
-    }
-}
-
-fn start_client(name: String) {
-    let mut client = TcpStream::connect(LOCAL).expect("Stream failed to connect");
-    client
-        .set_nonblocking(true)
-        .expect("failed to initiate non-blocking");
-
-    let (tx, rx) = mpsc::channel::<String>();
-    tx.send(format!("**{} HAS JOINED**", name))
-        .expect("failed to send username");
-    match rx.try_recv() {
-        Ok(msg) => {
-            let mut buff = msg.clone().into_bytes();
-            buff.resize(MSG_SIZE, 0);
-            client.write_all(&buff).expect("writing to socket failed");
-            //        println!("Client: {:?}", client.read_exact(&mut buff));
-        }
-        Err(_) => (),
-    }
-    // Loops to check if client has entered message in terminal
-    thread::spawn(move || loop {
-        // Reads if other clients send a message
-        let mut buff = vec![0; MSG_SIZE];
-        match client.read_exact(&mut buff) {
-            Ok(_) => {
-                let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
-                let msg = format!("{}", String::from_utf8_lossy(&msg));
-                println!("{}", msg);
-            }
-            Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
-            Err(_) => {
-                break;
-            }
-        }
-
-        match rx.try_recv() {
-            Ok(msg) => {
-                let msg = format!("{}: {}", name, msg);
-                let mut buff = msg.clone().into_bytes();
-                buff.resize(MSG_SIZE, 0);
-                client.write_all(&buff).expect("writing to socket failed");
-                //        println!("Client: {:?}", client.read_exact(&mut buff));
-            }
-            Err(TryRecvError::Empty) => (),
-            Err(TryRecvError::Disconnected) => break,
-        }
-
-        sleep();
-    });
-
-    println!("----- START OF CHAT SESSION -----");
-    loop {
-        let mut buff = String::new();
-        io::stdin()
-            .read_line(&mut buff)
-            .expect("reading from stdin failed");
-        let msg = buff.trim().to_string();
-        if msg == ":q" || tx.send(msg).is_err() {
-            break;
-        }
-    }
-
-    println!("Session terminated");
-}
-
-fn start(host: bool, name: String) {
-    if host {
-        let user = name.clone();
-        let handle = thread::spawn(move || start_server(user.clone()));
-        sleep();
-
-        start_client(name);
-
-        handle.join().unwrap();
-    } else {
-        start_client(name);
-    }
-}
+mod client;
+mod constants;
+mod server;
+mod utils;
 
 fn main() {
     let args = env::args().collect::<Vec<String>>();
     let name = args[2].clone();
-    start(&args[1] == "host", name);
+    if &args[1] == "host" {
+        let handle = thread::spawn(move || start_server());
+        sleep();
+        start_client(name);
+        handle.join().unwrap();
+    } else {
+        start_client(name);
+    }
 }
