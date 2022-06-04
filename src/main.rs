@@ -24,8 +24,6 @@ fn start_server(name: String) {
     loop {
         // Only fires when a client JOINS
         if let Ok((mut socket, addr)) = server.accept() {
-            println!("Client {} connected", addr);
-
             let tx = tx.clone();
             clients.push(socket.try_clone().expect("failed to clone client"));
 
@@ -70,17 +68,23 @@ fn start_server(name: String) {
 }
 
 fn start_client(name: String) {
-    let user = name.clone();
-    let handle = thread::spawn(move || start_server(user.clone()));
-    sleep();
-
     let mut client = TcpStream::connect(LOCAL).expect("Stream failed to connect");
     client
         .set_nonblocking(true)
         .expect("failed to initiate non-blocking");
 
     let (tx, rx) = mpsc::channel::<String>();
-
+    tx.send(format!("**{} HAS JOINED**", name))
+        .expect("failed to send username");
+    match rx.try_recv() {
+        Ok(msg) => {
+            let mut buff = msg.clone().into_bytes();
+            buff.resize(MSG_SIZE, 0);
+            client.write_all(&buff).expect("writing to socket failed");
+            //        println!("Client: {:?}", client.read_exact(&mut buff));
+        }
+        Err(_) => (),
+    }
     // Loops to check if client has entered message in terminal
     thread::spawn(move || loop {
         // Reads if other clients send a message
@@ -112,7 +116,7 @@ fn start_client(name: String) {
         sleep();
     });
 
-    println!("Write a Message:");
+    println!("----- START OF CHAT SESSION -----");
     loop {
         let mut buff = String::new();
         io::stdin()
@@ -125,18 +129,24 @@ fn start_client(name: String) {
     }
 
     println!("Session terminated");
+}
 
-    handle.join().unwrap();
+fn start(host: bool, name: String) {
+    if host {
+        let user = name.clone();
+        let handle = thread::spawn(move || start_server(user.clone()));
+        sleep();
+
+        start_client(name);
+
+        handle.join().unwrap();
+    } else {
+        start_client(name);
+    }
 }
 
 fn main() {
     let args = env::args().collect::<Vec<String>>();
     let name = args[2].clone();
-    if &args[1] == "host" {
-        start_server(name);
-    } else if &args[1] == "connect" {
-        start_client(name);
-    } else {
-        panic!("Argument 1 neither 'host' or 'connect'");
-    }
+    start(&args[1] == "host", name);
 }
