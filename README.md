@@ -14,7 +14,8 @@ To join a server, type in:
 
 `cargo run connect <NAME>`
 
----
+
+
 
 ## Roadmap:
 - [ ] Encryption
