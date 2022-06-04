@@ -4,8 +4,9 @@ Nathan's Internet Relay Chat (NIRC) is Nathan's implementation of an encrypted t
 
 Roadmap:
 - [ ] Encryption
+- [ ] Make beautiful
 - [ ] Figure out hosting (not on Local)
-- [ ] Usernames
-- [ ] Allow host to simultaniously be a client
-- [ ] Get messages across multiple clients working
+- [x] Usernames
+- [x] Allow host to simultaniously be a client
+- [x] Get messages across multiple clients working
 - [x] CLI functional
