@@ -38,8 +38,6 @@ fn start_server(name: String) {
                         let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
                         let msg =
                             format!("{}", String::from_utf8(msg).expect("Invalid utf8 message"));
-
-                        println!("{}: {:?}", addr, msg);
                         // Sends message to receiver
                         tx.send(msg).expect("failed to send msg to rx");
                     }
@@ -72,6 +70,10 @@ fn start_server(name: String) {
 }
 
 fn start_client(name: String) {
+    let user = name.clone();
+    let handle = thread::spawn(move || start_server(user.clone()));
+    sleep();
+
     let mut client = TcpStream::connect(LOCAL).expect("Stream failed to connect");
     client
         .set_nonblocking(true)
@@ -122,7 +124,9 @@ fn start_client(name: String) {
         }
     }
 
-    println!("Session terminated")
+    println!("Session terminated");
+
+    handle.join().unwrap();
 }
 
 fn main() {
