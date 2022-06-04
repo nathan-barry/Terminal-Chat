@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::env;
 /// SERVER
 use std::io::{self, ErrorKind, Read, Write};
@@ -19,7 +18,6 @@ fn start_server(name: String) {
         .set_nonblocking(true)
         .expect("failed to initialize non-blocking");
 
-    // let mut users = HashMap::new();
     let mut clients = vec![];
     let (tx, rx) = mpsc::channel::<String>();
 
@@ -31,22 +29,6 @@ fn start_server(name: String) {
             let tx = tx.clone();
             clients.push(socket.try_clone().expect("failed to clone client"));
 
-            let mut buff = vec![0; MSG_SIZE];
-
-            // Gets the username
-            match socket.read_exact(&mut buff) {
-                Ok(_) => {
-                    let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
-                    let msg = format!("{}", String::from_utf8(msg).expect("Invalid utf8 message"));
-                    println!("USERNAME: {:?}", msg);
-                }
-                Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
-                Err(_) => {
-                    println!("closing connection with: {}", addr);
-                    break;
-                }
-            }
-
             thread::spawn(move || loop {
                 let mut buff = vec![0; MSG_SIZE];
 
@@ -54,11 +36,8 @@ fn start_server(name: String) {
                 match socket.read_exact(&mut buff) {
                     Ok(_) => {
                         let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
-                        let msg = format!(
-                            "{}",
-                            // users.get(&addr).expect("User not found"),
-                            String::from_utf8(msg).expect("Invalid utf8 message")
-                        );
+                        let msg =
+                            format!("{}", String::from_utf8(msg).expect("Invalid utf8 message"));
 
                         println!("{}: {:?}", addr, msg);
                         // Sends message to receiver
@@ -98,18 +77,7 @@ fn start_client(name: String) {
         .set_nonblocking(true)
         .expect("failed to initiate non-blocking");
 
-    let user = name.clone();
     let (tx, rx) = mpsc::channel::<String>();
-    tx.send(user).expect("failed to send msg to rx");
-    match rx.try_recv() {
-        Ok(msg) => {
-            let mut buff = msg.clone().into_bytes();
-            buff.resize(MSG_SIZE, 0);
-            client.write_all(&buff).expect("writing to socket failed");
-            //        println!("Client: {:?}", client.read_exact(&mut buff));
-        }
-        Err(_) => (),
-    }
 
     // Loops to check if client has entered message in terminal
     thread::spawn(move || loop {
