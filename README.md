@@ -1,4 +1,4 @@
-# NIRC
+# Terminal Chat
 
 Nathan's Internet Relay Chat (NIRC) is Nathan's implementation of an encrypted terminal-based chat application that allows anyone to host their own server and allow others to join. I have zero clue on how IRC actually works, so my implementation will most likely be nothing like how IRC actually functions.
 
